@@ -426,6 +426,23 @@ export default function App() {
           </aside>
         </main>
       )}
+
+      <footer className="footer">
+        <p>
+          Recap64 is free and{' '}
+          <a href="https://github.com/SadmanInAction/Recap64" target="_blank" rel="noreferrer">
+            open source
+          </a>{' '}
+          (GPLv3) · Powered by{' '}
+          <a href="https://stockfishchess.org" target="_blank" rel="noreferrer">
+            Stockfish
+          </a>{' '}
+          · <a href={`${import.meta.env.BASE_URL}licenses.txt`}>Licenses</a>
+        </p>
+        <p className="muted">
+          Not affiliated with Chess.com or Lichess. Your games are analyzed in your browser and never uploaded.
+        </p>
+      </footer>
     </div>
   );
 }

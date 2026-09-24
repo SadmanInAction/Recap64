@@ -1,6 +1,10 @@
 # ♞ Recap64
 
+**▶ Use it now: [recap64.vercel.app](https://recap64.vercel.app)**
+
 Recap64 is a free, unlimited, chess.com-style **Game Review** that runs entirely in your browser with Stockfish 19 (WebAssembly). No account, no server, no limits.
+
+![Recap64](public/og.png)
 
 ## Features
 
@@ -58,8 +62,19 @@ src/
 scripts/
   copy-stockfish.mjs        copies engine builds from node_modules (runs on install)
   build-openings.mjs        regenerates public/openings.json (`npm run openings`)
+  build-notices.mjs         writes public/licenses.txt with third-party licences (runs on build)
 ```
 
-## Credits and licences
+## Licence
 
-Stockfish.js (GPLv3), chess.js (BSD-2), react-chessboard (MIT), and the Lichess chess-openings dataset (CC0).
+Recap64 is free software, licensed under the **GNU General Public License v3.0 or later**. See [LICENSE](LICENSE).
+
+It's built on:
+- [Stockfish](https://github.com/official-stockfish/Stockfish) via [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3)
+- [chess.js](https://github.com/jhlywa/chess.js) (BSD-2-Clause)
+- [react-chessboard](https://github.com/Clariity/react-chessboard) (MIT)
+- The [Lichess chess-openings](https://github.com/lichess-org/chess-openings) dataset (CC0)
+
+The deployed site serves every third-party licence at [`/licenses.txt`](https://recap64.vercel.app/licenses.txt), generated at build time by `scripts/build-notices.mjs`.
+
+Recap64 is an independent project and is not affiliated with, endorsed by, or connected to Chess.com or Lichess.

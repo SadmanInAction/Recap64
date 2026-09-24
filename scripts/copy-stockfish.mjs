@@ -21,4 +21,6 @@ const files = {
   'stockfish-19-lite.wasm': 'stockfish-mt.wasm',
 };
 for (const [from, to] of Object.entries(files)) copyFileSync(join(src, from), join(dest, to));
+// The engine is GPLv3: ship its licence next to the binaries.
+copyFileSync(join(src, '..', 'Copying.txt'), join(dest, 'COPYING.txt'));
 console.log('[copy-stockfish] Stockfish 19 lite builds copied to public/stockfish');

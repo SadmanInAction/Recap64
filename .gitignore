@@ -6,3 +6,4 @@ public/stockfish
 
 .vercel
 .env*
+public/licenses.txt
