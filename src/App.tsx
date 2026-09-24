@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { Arrow } from 'react-chessboard';
+import { Analytics } from '@vercel/analytics/react';
 import { analyzeGame, parsePgn, terminalState } from './analysis/analyze';
 import { CLASS_INFO, uciToMove } from './analysis/classify';
 import { formatScore } from './analysis/score';
@@ -41,7 +42,7 @@ interface Variation {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('import');
-  const [depth, setDepth] = useState(() => Number(localStorageGet('ca.depth')) || 16);
+  const [depth, setDepth] = useState(() => Number(localStorageGet('ca.depth')) || defaultDepth());
   const [error, setError] = useState<string | null>(null);
   const [game, setGame] = useState<ParsedGame | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number; positions: PositionAnalysis[] }>({
@@ -427,6 +428,13 @@ export default function App() {
         </main>
       )}
 
+      {/* Anonymous, cookie-free page views: only "/" and "/review", never game ids or moves. */}
+      <Analytics
+        route={screen === 'import' ? '/' : '/review'}
+        path={screen === 'import' ? '/' : '/review'}
+        beforeSend={(event) => ({ ...event, url: event.url.split('#')[0] })}
+      />
+
       <footer className="footer">
         <p>
           Recap64 is free and{' '}
@@ -437,7 +445,10 @@ export default function App() {
           <a href="https://stockfishchess.org" target="_blank" rel="noreferrer">
             Stockfish
           </a>{' '}
-          · <a href={`${import.meta.env.BASE_URL}licenses.txt`}>Licenses</a>
+          · <a href={`${import.meta.env.BASE_URL}licenses.txt`}>Licenses</a> ·{' '}
+          <a href="https://github.com/SadmanInAction/Recap64/issues" target="_blank" rel="noreferrer">
+            Report a bug / suggest a feature
+          </a>
         </p>
         <p className="muted">
           Not affiliated with Chess.com or Lichess. Your games are analyzed in your browser and never uploaded.
@@ -445,6 +456,12 @@ export default function App() {
       </footer>
     </div>
   );
+}
+
+/** Phones and low-core machines default to Fast so a full game doesn't take minutes. */
+function defaultDepth(): number {
+  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  return coarse || (navigator.hardwareConcurrency || 2) <= 4 ? 12 : 16;
 }
 
 /** Labels each SAN move with its move number, e.g. ["1. e4", "e5"] or ["3... Nf6", "4. d4"]. */

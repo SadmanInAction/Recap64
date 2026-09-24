@@ -65,6 +65,10 @@ scripts/
   build-notices.mjs         writes public/licenses.txt with third-party licences (runs on build)
 ```
 
+## Privacy
+
+Games are analyzed entirely in your browser and never uploaded. Saved analyses stay in your browser's storage. The site counts anonymous, cookie-free page views with [Vercel Web Analytics](https://vercel.com/docs/analytics/privacy-policy): only the home and review screens are recorded, never your games, moves or usernames.
+
 ## Licence
 
 Recap64 is free software, licensed under the **GNU General Public License v3.0 or later**. See [LICENSE](LICENSE).

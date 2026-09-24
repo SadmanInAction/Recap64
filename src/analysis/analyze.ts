@@ -13,16 +13,33 @@ import type {
 } from './types';
 import type { UciLine } from '../engine/Engine';
 
-export function parsePgn(pgn: string): ParsedGame {
+/** A pasted PGN may hold several games (e.g. an exported archive); keep only the first. */
+function firstGame(pgn: string): string {
+  const out: string[] = [];
+  let seenMoves = false;
+  for (const line of pgn.trim().split(/\r?\n/)) {
+    const t = line.trim();
+    if (t.startsWith('[') && seenMoves) break; // header of the next game
+    if (t && !t.startsWith('[')) seenMoves = true;
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
+export function parsePgn(input: string): ParsedGame {
+  const pgn = firstGame(input);
   const chess = new Chess();
   try {
-    chess.loadPgn(pgn.trim());
+    chess.loadPgn(pgn);
   } catch (e) {
     throw new Error(`Could not read PGN: ${(e as Error).message}`);
   }
   const history = chess.history({ verbose: true });
   if (history.length === 0) throw new Error('The PGN contains no moves.');
-  const headers = chess.getHeaders();
+  // Drop placeholder values ("?", "????.??.??") so callers can fall back to "White"/"Black".
+  const headers = Object.fromEntries(
+    Object.entries(chess.getHeaders()).filter(([, v]) => v && !/^[?.]+$/.test(v)),
+  );
   const timeControl = parseTimeControl(headers.TimeControl);
 
   // Comments are keyed by the FEN after the move; clocks look like {[%clk 0:02:59.9]}.
