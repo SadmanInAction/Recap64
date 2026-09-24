@@ -214,6 +214,17 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   font-size: 13px; font-weight: 700; background: var(--green); color: #fff; box-shadow: 0 2px 0 var(--green-dark);
 }
 .btn-best:hover { background: #95c95d; }
+.btn-retry {
+  border: 0; border-radius: 6px; padding: 5px 12px; font-size: 13px; font-weight: 700;
+  background: #5c8bb0; color: #fff; box-shadow: 0 2px 0 #426a8a;
+}
+.btn-retry:hover { background: #6f9dc2; }
+.retry-icon {
+  width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: #5c8bb0; color: #fff; font-weight: 800; font-size: 16px;
+}
+.engine-hidden { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.coach-actions { flex-wrap: wrap; }
 .best-line { margin: 6px 0 0; font-family: Consolas, monospace; font-size: 13px; }
 .variation-line { margin: 8px 0 0; font-family: Consolas, monospace; }
 .variation-line .hl { color: var(--green); font-weight: 700; }

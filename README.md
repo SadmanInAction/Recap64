@@ -14,6 +14,7 @@ Recap64 is a free, unlimited, chess.com-style **Game Review** that runs entirely
 - **Evaluation graph** (click to jump) and an **eval bar**
 - **Coach comments** with the best move, an arrow on the board and the engine's best line
 - **Best button**: replays the position with the engine's best move on the board, then steps through the follow-up line
+- **Retry button**: after an inaccuracy, mistake, miss or blunder, try to find a better move yourself. The engine judges your attempt, and its lines stay hidden until you're done
 - **Opening detection** (3,800+ named openings from the Lichess dataset)
 - **Live engine** (top 3 lines) on any position
 - **Try your own moves**: drag or click pieces to explore variations with live evaluation

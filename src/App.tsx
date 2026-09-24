@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { Arrow } from 'react-chessboard';
 import { Analytics } from '@vercel/analytics/react';
-import { analyzeGame, parsePgn, terminalState } from './analysis/analyze';
-import { CLASS_INFO, uciToMove } from './analysis/classify';
-import { formatScore } from './analysis/score';
-import type { GameAnalysis, ParsedGame, PositionAnalysis, Score } from './analysis/types';
+import { analyzeGame, parsePgn, terminalState, toEngineLines } from './analysis/analyze';
+import { CLASS_INFO, classifyByLoss, uciToMove } from './analysis/classify';
+import { formatScore, winPctFor } from './analysis/score';
+import type { Classification, GameAnalysis, ParsedGame, PositionAnalysis, Score } from './analysis/types';
 import { Engine } from './engine/Engine';
 import { useLiveEngine } from './engine/useLiveEngine';
 import { BoardView } from './components/BoardView';
@@ -42,6 +42,18 @@ interface Variation {
   best?: { returnPly: number; deviated: boolean };
 }
 
+/** "Retry" mode: find a better move than the one played, judged by the engine. */
+interface Retry {
+  basePly: number; // position to find a move in
+  returnPly: number; // the game move being retried
+  status: 'thinking' | 'checking' | 'correct' | 'good' | 'wrong';
+  attempt?: { san: string; uci: string; from: string; to: string; fen: string; classification?: Classification };
+  samePlayed?: boolean; // the attempt was the move actually played in the game
+  score?: Score; // evaluation after the attempt
+}
+
+const RETRY_CLASSES: Classification[] = ['inaccuracy', 'mistake', 'miss', 'blunder'];
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('import');
   const [depth, setDepth] = useState(() => Number(localStorageGet('ca.depth')) || defaultDepth());
@@ -56,6 +68,7 @@ export default function App() {
   const [ply, setPly] = useState(0);
   const [orientation, setOrientation] = useState<'white' | 'black'>('white');
   const [variation, setVariation] = useState<Variation | null>(null);
+  const [retry, setRetry] = useState<Retry | null>(null);
   const [panel, setPanel] = useState<'summary' | 'moves'>('summary');
   const [liveOn, setLiveOn] = useState(() => localStorageGet('ca.live') !== 'off');
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -65,12 +78,14 @@ export default function App() {
 
   const engineRef = useRef<Engine | null>(null);
   const runRef = useRef(0);
+  const retryRunRef = useRef(0);
 
   const openReview = useCallback((result: GameAnalysis, id: string, atPly = 0, push = true) => {
     setGame(result.game);
     setAnalysis(result);
     setCurrentId(id);
     setVariation(null);
+    setRetry(null);
     setPly(Math.max(0, Math.min(result.moves.length, atPly)));
     setPanel(atPly > 0 ? 'moves' : 'summary');
     setOrientation(guessOrientation(result.game));
@@ -88,6 +103,7 @@ export default function App() {
     setAnalysis(null);
     setGame(null);
     setVariation(null);
+    setRetry(null);
     setCurrentId(null);
     if (push) history.pushState(null, '', location.pathname + location.search);
   }, []);
@@ -187,11 +203,18 @@ export default function App() {
 
   // ----- current position -----
   const maxPly = analysis?.moves.length ?? 0;
-  const baseFen = analysis ? analysis.positions[variation ? variation.basePly : ply].fen : new Chess().fen();
-  const fen = variation && variation.index > 0 ? variation.moves[variation.index - 1].fen : baseFen;
-  const currentMove = !variation && analysis && ply > 0 ? analysis.moves[ply - 1] : null;
+  const baseFen = analysis
+    ? analysis.positions[retry ? retry.basePly : variation ? variation.basePly : ply].fen
+    : new Chess().fen();
+  const fen = retry
+    ? (retry.attempt?.fen ?? baseFen)
+    : variation && variation.index > 0
+      ? variation.moves[variation.index - 1].fen
+      : baseFen;
+  const currentMove = !variation && !retry && analysis && ply > 0 ? analysis.moves[ply - 1] : null;
 
-  const liveLines = useLiveEngine(fen, screen === 'review' && liveOn);
+  // The live engine would give the answer away during Retry, so it pauses.
+  const liveLines = useLiveEngine(fen, screen === 'review' && liveOn && !retry);
 
   const score: Score | undefined = useMemo(() => {
     const terminal = terminalState(fen);
@@ -200,10 +223,11 @@ export default function App() {
       return { kind: 'mate', moves: 0, winner: loser === 'w' ? 'b' : 'w' };
     }
     if (terminal === 'draw') return { kind: 'cp', cp: 0 };
+    if (retry) return retry.score ?? analysis?.positions[retry.basePly].lines[0]?.score;
     if (liveLines[0] && (variation || liveLines[0].depth >= (analysis?.depth ?? 99))) return liveLines[0].score;
     if (!variation && analysis) return analysis.positions[ply].lines[0]?.score;
     return liveLines[0]?.score;
-  }, [fen, liveLines, variation, analysis, ply]);
+  }, [fen, liveLines, variation, retry, analysis, ply]);
 
   const arrows: Arrow[] = useMemo(() => {
     const list: Arrow[] = [];
@@ -221,7 +245,13 @@ export default function App() {
     return list;
   }, [currentMove, variation, liveLines]);
 
-  const lastMove = variation
+  const lastMove = retry
+    ? retry.attempt
+      ? retry.attempt
+      : retry.basePly > 0
+        ? analysis!.moves[retry.basePly - 1]
+        : undefined
+    : variation
     ? variation.index > 0
       ? variation.best && !variation.best.deviated && variation.index === 1
         ? { ...variation.moves[0], classification: 'best' as const }
@@ -234,6 +264,8 @@ export default function App() {
   // ----- navigation -----
   const goTo = useCallback(
     (p: number) => {
+      retryRunRef.current++;
+      setRetry(null);
       setVariation(null);
       setPly(Math.max(0, Math.min(maxPly, p)));
     },
@@ -259,11 +291,85 @@ export default function App() {
         break;
       }
     }
-    if (moves.length) setVariation({ basePly: ply - 1, moves, index: 1, best: { returnPly: ply, deviated: false } });
+    if (moves.length) {
+      retryRunRef.current++;
+      setRetry(null);
+      setVariation({ basePly: ply - 1, moves, index: 1, best: { returnPly: ply, deviated: false } });
+    }
+  };
+
+  /** "Retry" button: rewind to before the current move and let the user look for a better one. */
+  const startRetry = () => {
+    if (!analysis || ply === 0) return;
+    retryRunRef.current++;
+    setVariation(null);
+    setRetry({ basePly: ply - 1, returnPly: ply, status: 'thinking' });
+  };
+
+  const retryAgain = () => {
+    retryRunRef.current++;
+    setRetry((r) => r && { basePly: r.basePly, returnPly: r.returnPly, status: 'thinking' });
+  };
+
+  /** Judges a Retry attempt against the stored analysis, searching with the engine when needed. */
+  const judgeAttempt = async (r: Retry, attempt: NonNullable<Retry['attempt']>) => {
+    if (!analysis) return;
+    const run = ++retryRunRef.current;
+    const played = analysis.moves[r.returnPly - 1];
+    const before = analysis.positions[r.basePly];
+    setRetry({ ...r, status: 'checking', attempt });
+
+    let classification: Classification;
+    let score: Score | undefined;
+    const samePlayed = attempt.uci === played.uci;
+    const terminal = terminalState(attempt.fen);
+    if (samePlayed) {
+      classification = played.classification;
+      score = analysis.positions[r.returnPly].lines[0]?.score;
+    } else if (terminal === 'checkmate' || attempt.uci === before.lines[0]?.pv[0]) {
+      classification = 'best';
+      score = terminal === 'checkmate' ? { kind: 'mate', moves: 0, winner: played.color } : before.lines[0]?.score;
+    } else {
+      if (terminal === 'draw') {
+        score = { kind: 'cp', cp: 0 };
+      } else if (attempt.uci === before.lines[1]?.pv[0]) {
+        score = before.lines[1].score;
+      } else {
+        engineRef.current ??= new Engine();
+        const res = await engineRef.current.analyze(attempt.fen, {
+          depth: Math.min(analysis.depth, 16),
+          movetime: 2500,
+          isCancelled: () => run !== retryRunRef.current,
+        });
+        if (run !== retryRunRef.current) return;
+        score = toEngineLines(attempt.fen, res.lines)[0]?.score;
+      }
+      const bestScore = before.lines[0]?.score;
+      const loss = score && bestScore ? Math.max(0, winPctFor(bestScore, played.color) - winPctFor(score, played.color)) : 100;
+      classification = classifyByLoss(loss);
+    }
+    if (run !== retryRunRef.current) return;
+
+    const status: Retry['status'] = samePlayed
+      ? 'wrong'
+      : classification === 'best' || classification === 'excellent'
+        ? 'correct'
+        : classification === 'good'
+          ? 'good'
+          : 'wrong';
+    setRetry({ ...r, status, attempt: { ...attempt, classification }, samePlayed, score });
+
+    // A wrong attempt is taken back automatically so the user can try again.
+    if (status === 'wrong') {
+      setTimeout(() => {
+        if (run === retryRunRef.current) retryAgain();
+      }, 1800);
+    }
   };
 
   const step = useCallback(
     (delta: number) => {
+      if (retry) return goTo(retry.returnPly);
       if (variation) {
         const next = variation.index + delta;
         if (next < 0) return goTo(variation.basePly);
@@ -273,7 +379,7 @@ export default function App() {
       }
       goTo(ply + delta);
     },
-    [variation, ply, goTo],
+    [variation, retry, ply, goTo],
   );
 
   useEffect(() => {
@@ -285,13 +391,14 @@ export default function App() {
       else if (e.key === 'ArrowUp' || e.key === 'Home') goTo(0);
       else if (e.key === 'ArrowDown' || e.key === 'End') goTo(maxPly);
       else if (e.key === 'f') setOrientation((o) => (o === 'white' ? 'black' : 'white'));
+      else if (e.key === 'Escape' && retry) goTo(retry.returnPly);
       else if (e.key === 'Escape' && variation) exitVariation();
       else return;
       e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [screen, step, goTo, maxPly, variation, exitVariation]);
+  }, [screen, step, goTo, maxPly, variation, retry, exitVariation]);
 
   // ----- trying your own moves -----
   const onDrop = (from: string, to: string): boolean => {
@@ -304,6 +411,12 @@ export default function App() {
       return false;
     }
     const uci = move.from + move.to + (move.promotion ?? '');
+
+    if (retry) {
+      if (retry.status !== 'thinking') return false;
+      judgeAttempt(retry, { san: move.san, uci, from: move.from, to: move.to, fen: move.after });
+      return true;
+    }
 
     // Played the actual game move: just advance along the game.
     if (!variation && analysis.moves[ply]?.uci === uci) {
@@ -333,7 +446,13 @@ export default function App() {
   const topColor = orientation === 'white' ? 'b' : 'w';
   // Clocks follow the game position (the variation's starting point while exploring).
   const clockPly =
-    screen === 'analyzing' ? Math.max(0, progress.positions.length - 1) : variation ? variation.basePly : ply;
+    screen === 'analyzing'
+      ? Math.max(0, progress.positions.length - 1)
+      : retry
+        ? retry.basePly
+        : variation
+          ? variation.basePly
+          : ply;
   const running = game && clockPly < game.moves.length ? game.moves[clockPly].color : null;
   const player = (c: 'w' | 'b') => ({
     name: (c === 'w' ? headers.White : headers.Black) || (c === 'w' ? 'White' : 'Black'),
@@ -453,9 +572,13 @@ export default function App() {
                       onExitVariation={exitVariation}
                       onShowBest={showBestMove}
                       onStep={step}
+                      retry={retry}
+                      onRetry={startRetry}
+                      onRetryAgain={retryAgain}
+                      onExitRetry={(next) => retry && goTo(retry.returnPly + (next ? 1 : 0))}
                     />
                     <EvalGraph positions={analysis.positions} moves={analysis.moves} current={variation ? variation.basePly : ply} onSelect={goTo} />
-                    <EngineLines lines={liveLines} on={liveOn} onToggle={toggleLive} fen={fen} />
+                    <EngineLines lines={liveLines} on={liveOn} onToggle={toggleLive} fen={fen} hidden={!!retry} />
                     <MoveList moves={analysis.moves} current={variation ? -1 : ply} onSelect={goTo} />
                   </>
                 )}
@@ -560,6 +683,10 @@ function CoachBox({
   onExitVariation,
   onShowBest,
   onStep,
+  retry,
+  onRetry,
+  onRetryAgain,
+  onExitRetry,
 }: {
   analysis: GameAnalysis;
   ply: number;
@@ -567,7 +694,23 @@ function CoachBox({
   onExitVariation: () => void;
   onShowBest: () => void;
   onStep: (delta: number) => void;
+  retry: Retry | null;
+  onRetry: () => void;
+  onRetryAgain: () => void;
+  onExitRetry: (next?: boolean) => void;
 }) {
+  if (retry) {
+    return (
+      <RetryBox
+        analysis={analysis}
+        retry={retry}
+        onAgain={onRetryAgain}
+        onShowBest={onShowBest}
+        onExit={() => onExitRetry()}
+        onNext={() => onExitRetry(true)}
+      />
+    );
+  }
   if (variation?.best && !variation.best.deviated) {
     const played = analysis.moves[variation.best.returnPly - 1];
     const best = variation.moves[0];
@@ -671,6 +814,11 @@ function CoachBox({
       )}
       {showBest && (
         <div className="coach-actions">
+          {RETRY_CLASSES.includes(m.classification) && (
+            <button className="btn-retry" onClick={onRetry} title="Try to find a better move">
+              ↻ Retry
+            </button>
+          )}
           <button className="btn-best" onClick={onShowBest} title="Play the best move on the board">
             <ClassIcon type="best" size={18} /> Best
           </button>
@@ -683,16 +831,89 @@ function CoachBox({
   );
 }
 
+function RetryBox({
+  analysis,
+  retry,
+  onAgain,
+  onShowBest,
+  onExit,
+  onNext,
+}: {
+  analysis: GameAnalysis;
+  retry: Retry;
+  onAgain: () => void;
+  onShowBest: () => void;
+  onExit: () => void;
+  onNext: () => void;
+}) {
+  const played = analysis.moves[retry.returnPly - 1];
+  const side = played.color === 'w' ? 'White' : 'Black';
+  const a = retry.attempt;
+  const cls = a?.classification;
+  const info = cls ? CLASS_INFO[cls] : null;
+  const article = (label: string) => (/^[aeiou]/i.test(label) ? 'an' : 'a');
+
+  let title = `Retry · find a better move for ${side}`;
+  let text = `Find a better move than ${played.san}. Drag or click a piece to play it.`;
+  if (retry.status === 'checking' && a) {
+    title = `Checking ${a.san}…`;
+    text = 'The engine is evaluating your move.';
+  } else if (retry.status === 'correct' && a && info) {
+    title = `Correct! ${a.san} is ${cls === 'best' ? 'the best move' : 'excellent'}`;
+    text = cls === 'best' ? 'You found the engine\'s top choice.' : 'Almost as good as the best move.';
+  } else if (retry.status === 'good' && a) {
+    title = `${a.san} is good`;
+    text = 'But there is a better move. Try again, or see the best move.';
+  } else if (retry.status === 'wrong' && a && info) {
+    title = retry.samePlayed ? `${a.san} is the move you played` : `${a.san} is ${article(info.label)} ${info.label.toLowerCase()}`;
+    text = 'Try again…';
+  }
+
+  return (
+    <div className="coach" style={{ borderColor: info?.color ?? '#5c8bb0' }}>
+      <div className="coach-head">
+        {cls && retry.status !== 'checking' ? <ClassIcon type={cls} size={28} /> : <span className="retry-icon">↻</span>}
+        <span className="coach-title" style={{ color: info && retry.status !== 'checking' ? info.color : undefined }}>
+          {title}
+        </span>
+      </div>
+      <p className="coach-text">{text}</p>
+      <div className="coach-actions">
+        {(retry.status === 'good' || retry.status === 'correct') && (
+          <button className="btn-retry" onClick={onAgain}>
+            ↻ Try again
+          </button>
+        )}
+        {retry.status !== 'correct' && (
+          <button className="btn-best" onClick={onShowBest}>
+            <ClassIcon type="best" size={18} /> Show best
+          </button>
+        )}
+        {retry.status === 'correct' && (
+          <button className="btn-secondary small" onClick={onNext}>
+            Next move ▶
+          </button>
+        )}
+        <button className="btn-secondary small" onClick={onExit}>
+          Back to game
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EngineLines({
   lines,
   on,
   onToggle,
   fen,
+  hidden,
 }: {
   lines: { score: Score; depth: number; san: string[] }[];
   on: boolean;
   onToggle: () => void;
   fen: string;
+  hidden?: boolean;
 }) {
   const formatLine = (san: string[]) => numberedSan(fen, san.slice(0, 10)).join(' ');
 
@@ -704,9 +925,11 @@ function EngineLines({
           <span />
         </label>
         <span>Live engine</span>
-        {on && lines[0] && <span className="muted">depth {lines[0].depth}</span>}
+        {on && !hidden && lines[0] && <span className="muted">depth {lines[0].depth}</span>}
       </div>
+      {on && hidden && <p className="engine-hidden">Hidden while you retry, no peeking!</p>}
       {on &&
+        !hidden &&
         lines.map((l, i) => (
           <div className="engine-line" key={i}>
             <span className={`line-score ${l.score.kind === 'mate' ? (l.score.winner === 'w' ? 'pos' : 'neg') : l.score.cp >= 0 ? 'pos' : 'neg'}`}>

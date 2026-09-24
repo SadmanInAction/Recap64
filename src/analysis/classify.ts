@@ -147,6 +147,16 @@ function buildComment(m: Omit<MoveAnalysis, 'comment'>, before: Score | undefine
   }
 }
 
+/** Label for a move judged only by the win % it loses (used for Retry attempts). */
+export function classifyByLoss(loss: number): Classification {
+  if (loss < 0.5) return 'best';
+  if (loss < 2) return 'excellent';
+  if (loss < 5) return 'good';
+  if (loss < 10) return 'inaccuracy';
+  if (loss < 20) return 'mistake';
+  return 'blunder';
+}
+
 /** Per-move accuracy from win-% loss (Lichess formula). */
 export function moveAccuracy(loss: number): number {
   const a = 103.1668100711649 * Math.exp(-0.04354415386753951 * loss) - 3.166924740191411;
