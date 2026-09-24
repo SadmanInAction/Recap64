@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { fetchChessComGames, fetchLichessGames, type GameSummary } from '../lib/importGames';
+import { localStorageGet, localStorageSet, type SavedSummary } from '../lib/storage';
 
 type Tab = 'pgn' | 'chess.com' | 'lichess';
 
@@ -14,6 +15,9 @@ interface Props {
   onDepthChange: (d: number) => void;
   onAnalyze: (pgn: string) => void;
   error?: string | null;
+  saved: SavedSummary[];
+  onOpenSaved: (id: string) => void;
+  onDeleteSaved: (id: string) => void;
 }
 
 const SAMPLE_PGN = `[Event "Opera Game"]
@@ -27,7 +31,7 @@ const SAMPLE_PGN = `[Event "Opera Game"]
 8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7
 14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0`;
 
-export function ImportPanel({ depth, onDepthChange, onAnalyze, error }: Props) {
+export function ImportPanel({ depth, onDepthChange, onAnalyze, error, saved, onOpenSaved, onDeleteSaved }: Props) {
   const [tab, setTab] = useState<Tab>(() => (localStorageGet('ca.tab') as Tab) || 'pgn');
   const [pgn, setPgn] = useState('');
   const [username, setUsername] = useState(() => localStorageGet(`ca.user.${tab}`) ?? '');
@@ -163,22 +167,53 @@ export function ImportPanel({ depth, onDepthChange, onAnalyze, error }: Props) {
         </div>
         {error && <p className="error">{error}</p>}
       </div>
+
+      {saved.length > 0 && <SavedList saved={saved} onOpen={onOpenSaved} onDelete={onDeleteSaved} />}
     </div>
   );
 }
 
-export function localStorageGet(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-export function localStorageSet(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    /* ignore */
-  }
+function SavedList({
+  saved,
+  onOpen,
+  onDelete,
+}: {
+  saved: SavedSummary[];
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const depthLabel = (d: number) => DEPTHS.find((x) => x.value === d)?.label ?? `depth ${d}`;
+  return (
+    <div className="card saved">
+      <h2>Saved analyses</h2>
+      <div className="saved-list">
+        {saved.map((s) => (
+          <div key={s.id} className="saved-item">
+            <button className="saved-open" onClick={() => onOpen(s.id)}>
+              <span className="saved-result">{s.result === '1/2-1/2' ? '½-½' : s.result}</span>
+              <span className="game-players">
+                <span>
+                  <i className="piece-dot white" /> {s.white} {s.whiteElo && s.whiteElo !== '?' && <em>({s.whiteElo})</em>}
+                  <b className="saved-acc">{s.accuracy.w.toFixed(1)}</b>
+                </span>
+                <span>
+                  <i className="piece-dot black" /> {s.black} {s.blackElo && s.blackElo !== '?' && <em>({s.blackElo})</em>}
+                  <b className="saved-acc">{s.accuracy.b.toFixed(1)}</b>
+                </span>
+              </span>
+              <span className="game-meta">
+                <span className="saved-opening">{s.opening ?? `${Math.ceil(s.plies / 2)} moves`}</span>
+                <span>
+                  {depthLabel(s.depth)} · {new Date(s.savedAt).toLocaleDateString()}
+                </span>
+              </span>
+            </button>
+            <button className="saved-delete" title="Delete saved analysis" aria-label="Delete saved analysis" onClick={() => onDelete(s.id)}>
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

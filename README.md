@@ -12,6 +12,7 @@ Recap64 is a free, unlimited, chess.com-style **Game Review** that runs entirely
 - **Opening detection** (3,800+ named openings from the Lichess dataset)
 - **Live engine** (top 3 lines) on any position
 - **Try your own moves**: drag or click pieces to explore variations with live evaluation
+- **Saved analyses**: finished reviews are stored in your browser (IndexedDB, last 100 games). A reload returns you to the same game and move, re-analyzing a saved game opens instantly, and the home screen lists saved games so you can reopen or delete them
 - Keyboard: `←` `→` step, `↑`/`Home` start, `↓`/`End` end, `F` flip, `Esc` leave variation
 
 ## Run it

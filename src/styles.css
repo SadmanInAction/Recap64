@@ -92,6 +92,23 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .segmented button { background: none; border: 0; padding: 6px 14px; border-radius: 4px; color: var(--muted); font-weight: 600; }
 .segmented button.active { background: #454341; color: var(--text); }
 
+.saved { margin-top: 20px; }
+.saved h2 { margin: 0 0 12px; font-size: 18px; }
+.saved-list { display: flex; flex-direction: column; gap: 4px; max-height: 480px; overflow-y: auto; }
+.saved-item { display: flex; align-items: stretch; gap: 4px; }
+.saved-open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left;
+  background: var(--panel-2); border: 1px solid transparent; border-radius: 6px; padding: 8px 12px;
+}
+.saved-open:hover { border-color: var(--green); }
+.saved-result { font-weight: 700; min-width: 42px; text-align: center; font-size: 12px; background: #454341; border-radius: 4px; padding: 3px 4px; }
+.saved-acc { margin-left: 6px; font-size: 12px; color: var(--green); }
+.saved-opening { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saved-delete {
+  flex: none; width: 36px; background: var(--panel-2); border: 1px solid transparent; border-radius: 6px; color: var(--muted);
+}
+.saved-delete:hover { color: #ff8a7a; border-color: #ff8a7a; }
+
 /* ---------- review layout ---------- */
 .review {
   display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px;
@@ -232,4 +249,5 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   .eval-bar { width: 18px; }
   .player-bar, .controls { padding-left: 26px; }
   .acc-box { font-size: 20px; min-width: 70px; }
+  .saved-opening { max-width: 110px; }
 }

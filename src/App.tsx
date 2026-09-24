@@ -10,11 +10,27 @@ import { useLiveEngine } from './engine/useLiveEngine';
 import { BoardView } from './components/BoardView';
 import { ClassIcon } from './components/ClassIcon';
 import { EvalGraph } from './components/EvalGraph';
-import { DEPTHS, ImportPanel, localStorageGet, localStorageSet } from './components/ImportPanel';
+import { DEPTHS, ImportPanel } from './components/ImportPanel';
+import {
+  deleteAnalysis,
+  gameId,
+  getAnalysis,
+  listAnalyses,
+  localStorageGet,
+  localStorageSet,
+  saveAnalysis,
+  type SavedSummary,
+} from './lib/storage';
 import { MoveList } from './components/MoveList';
 import { Summary } from './components/Summary';
 
 type Screen = 'import' | 'analyzing' | 'review';
+
+/** The open game lives in the URL hash (#game=<id>&ply=<n>) so a reload restores it. */
+function readHash(): { id: string | null; ply: number } {
+  const params = new URLSearchParams(location.hash.slice(1));
+  return { id: params.get('game'), ply: Number(params.get('ply')) || 0 };
+}
 
 interface Variation {
   basePly: number;
@@ -38,9 +54,80 @@ export default function App() {
   const [variation, setVariation] = useState<Variation | null>(null);
   const [panel, setPanel] = useState<'summary' | 'moves'>('summary');
   const [liveOn, setLiveOn] = useState(() => localStorageGet('ca.live') !== 'off');
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [saved, setSaved] = useState<SavedSummary[]>([]);
+  // While restoring a game from the URL on first load, render nothing instead of flashing the home screen.
+  const [booting, setBooting] = useState(() => !!readHash().id);
 
   const engineRef = useRef<Engine | null>(null);
   const runRef = useRef(0);
+
+  const openReview = useCallback((result: GameAnalysis, id: string, atPly = 0, push = true) => {
+    setGame(result.game);
+    setAnalysis(result);
+    setCurrentId(id);
+    setVariation(null);
+    setPly(Math.max(0, Math.min(result.moves.length, atPly)));
+    setPanel(atPly > 0 ? 'moves' : 'summary');
+    setOrientation(guessOrientation(result.game));
+    setError(null);
+    setScreen('review');
+    const url = `#game=${id}&ply=${atPly}`;
+    if (push) history.pushState(null, '', url);
+    else history.replaceState(null, '', url);
+  }, []);
+
+  const goHome = useCallback((push: boolean) => {
+    runRef.current++;
+    engineRef.current?.stop();
+    setScreen('import');
+    setAnalysis(null);
+    setGame(null);
+    setVariation(null);
+    setCurrentId(null);
+    if (push) history.pushState(null, '', location.pathname + location.search);
+  }, []);
+
+  // Sync the screen with the URL on first load and on browser back/forward.
+  useEffect(() => {
+    const route = async () => {
+      const { id, ply: atPly } = readHash();
+      if (!id) {
+        goHome(false);
+      } else {
+        const stored = await getAnalysis(id);
+        if (stored) openReview(stored, id, atPly, false);
+        else {
+          history.replaceState(null, '', location.pathname + location.search);
+          goHome(false);
+        }
+      }
+      setBooting(false);
+    };
+    route();
+    window.addEventListener('popstate', route);
+    return () => window.removeEventListener('popstate', route);
+  }, [openReview, goHome]);
+
+  // Keep the current move in the URL (replace, so stepping through moves doesn't flood history).
+  useEffect(() => {
+    if (screen === 'review' && currentId) history.replaceState(null, '', `#game=${currentId}&ply=${ply}`);
+  }, [screen, currentId, ply]);
+
+  useEffect(() => {
+    if (screen === 'import') listAnalyses().then(setSaved);
+  }, [screen]);
+
+  const openSaved = async (id: string) => {
+    const stored = await getAnalysis(id);
+    if (stored) openReview(stored, id);
+    else setSaved(await listAnalyses());
+  };
+
+  const removeSaved = async (id: string) => {
+    await deleteAnalysis(id);
+    setSaved(await listAnalyses());
+  };
 
   const startAnalysis = async (pgn: string) => {
     let parsed: ParsedGame;
@@ -50,6 +137,15 @@ export default function App() {
       setError((e as Error).message);
       return;
     }
+    const id = gameId(parsed);
+
+    // Already analysed at least this deeply? Open the saved result instantly.
+    const stored = await getAnalysis(id);
+    if (stored && stored.depth >= depth) {
+      openReview(stored, id);
+      return;
+    }
+
     setError(null);
     setGame(parsed);
     setAnalysis(null);
@@ -70,22 +166,15 @@ export default function App() {
         onProgress: (done, total, positions) => setProgress({ done, total, positions: [...positions] }),
       });
       if (!result || run !== runRef.current) return;
-      setAnalysis(result);
-      setScreen('review');
+      openReview(result, id);
+      saveAnalysis(result);
     } catch (e) {
       setError(`Analysis failed: ${(e as Error).message}`);
       setScreen('import');
     }
   };
 
-  const reset = () => {
-    runRef.current++;
-    engineRef.current?.stop();
-    setScreen('import');
-    setAnalysis(null);
-    setGame(null);
-    setVariation(null);
-  };
+  const reset = () => goHome(screen !== 'import');
 
   const changeDepth = (d: number) => {
     setDepth(d);
@@ -230,8 +319,16 @@ export default function App() {
         )}
       </header>
 
-      {screen === 'import' && (
-        <ImportPanel depth={depth} onDepthChange={changeDepth} onAnalyze={startAnalysis} error={error} />
+      {screen === 'import' && !booting && (
+        <ImportPanel
+          depth={depth}
+          onDepthChange={changeDepth}
+          onAnalyze={startAnalysis}
+          error={error}
+          saved={saved}
+          onOpenSaved={openSaved}
+          onDeleteSaved={removeSaved}
+        />
       )}
 
       {screen !== 'import' && game && (
