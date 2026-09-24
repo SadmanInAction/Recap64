@@ -43,10 +43,19 @@ export interface GameMove {
   promotion?: string;
   before: string; // FEN
   after: string; // FEN
+  clock?: number; // seconds left on the mover's clock after this move (from [%clk])
+  timeSpent?: number; // seconds spent thinking on this move
+}
+
+export interface TimeControl {
+  base: number; // seconds
+  increment: number; // seconds
 }
 
 export interface ParsedGame {
+  pgn: string;
   headers: Record<string, string>;
+  timeControl?: TimeControl;
   startFen: string;
   moves: GameMove[];
 }

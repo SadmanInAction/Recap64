@@ -23,6 +23,7 @@ import {
 } from './lib/storage';
 import { MoveList } from './components/MoveList';
 import { Summary } from './components/Summary';
+import { clockAt, formatClock, formatSpent, formatTimeControl } from './lib/time';
 
 type Screen = 'import' | 'analyzing' | 'review';
 
@@ -299,11 +300,18 @@ export default function App() {
 
   const headers = game?.headers ?? {};
   const topColor = orientation === 'white' ? 'b' : 'w';
+  // Clocks follow the game position (the variation's starting point while exploring).
+  const clockPly =
+    screen === 'analyzing' ? Math.max(0, progress.positions.length - 1) : variation ? variation.basePly : ply;
+  const running = game && clockPly < game.moves.length ? game.moves[clockPly].color : null;
   const player = (c: 'w' | 'b') => ({
     name: (c === 'w' ? headers.White : headers.Black) || (c === 'w' ? 'White' : 'Black'),
     elo: c === 'w' ? headers.WhiteElo : headers.BlackElo,
     acc: analysis?.accuracy[c],
     color: c,
+    clock: game ? clockAt(game, clockPly, c) : undefined,
+    active: running === c,
+    lowTime: game?.timeControl ? Math.max(20, game.timeControl.base * 0.1) : 20,
   });
 
   return (
@@ -386,7 +394,13 @@ export default function App() {
 
                 {panel === 'summary' ? (
                   <>
-                    {analysis.opening && <p className="opening">📖 {analysis.opening}</p>}
+                    {(analysis.opening || analysis.game.timeControl) && (
+                      <p className="opening">
+                        {analysis.opening && <>📖 {analysis.opening}</>}
+                        {analysis.opening && analysis.game.timeControl && ' · '}
+                        {analysis.game.timeControl && <>⏱ {formatTimeControl(analysis.game.timeControl)}</>}
+                      </p>
+                    )}
                     <EvalGraph positions={analysis.positions} moves={analysis.moves} current={variation ? variation.basePly : ply} onSelect={goTo} />
                     <Summary analysis={analysis} />
                     <button
@@ -436,13 +450,34 @@ function guessOrientation(game: ParsedGame): 'white' | 'black' {
   return black && (black === user || black === user2) ? 'black' : 'white';
 }
 
-function PlayerBar({ name, elo, acc, color }: { name: string; elo?: string; acc?: number; color: 'w' | 'b' }) {
+function PlayerBar({
+  name,
+  elo,
+  acc,
+  color,
+  clock,
+  active,
+  lowTime,
+}: {
+  name: string;
+  elo?: string;
+  acc?: number;
+  color: 'w' | 'b';
+  clock?: number;
+  active: boolean;
+  lowTime: number;
+}) {
   return (
     <div className="player-bar">
       <span className={`avatar ${color === 'w' ? 'white' : 'black'}`}>{color === 'w' ? '♔' : '♚'}</span>
       <span className="player-name">{name}</span>
       {elo && elo !== '?' && <span className="player-elo">({elo})</span>}
-      {acc !== undefined && <span className="player-acc">{acc.toFixed(1)}%</span>}
+      <span className="player-right">
+        {acc !== undefined && <span className="player-acc">{acc.toFixed(1)}%</span>}
+        {clock !== undefined && (
+          <span className={`clock ${active ? 'active' : ''} ${clock < lowTime ? 'low' : ''}`}>{formatClock(clock)}</span>
+        )}
+      </span>
     </div>
   );
 }
@@ -504,6 +539,11 @@ function CoachBox({
         <span className="coach-eval">{evalAfter}</span>
       </div>
       <p className="coach-text">{m.comment}</p>
+      {m.timeSpent !== undefined && (
+        <p className="coach-time">
+          ⏱ {formatSpent(m.timeSpent)} spent{m.clock !== undefined && <> · {formatClock(m.clock)} left</>}
+        </p>
+      )}
       {showBest && m.bestLine.length > 0 && (
         <p className="best-line">
           <span className="muted">Best line: </span>

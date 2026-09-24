@@ -9,6 +9,7 @@ import type {
   GameAnalysis,
   ParsedGame,
   PositionAnalysis,
+  TimeControl,
 } from './types';
 import type { UciLine } from '../engine/Engine';
 
@@ -21,8 +22,25 @@ export function parsePgn(pgn: string): ParsedGame {
   }
   const history = chess.history({ verbose: true });
   if (history.length === 0) throw new Error('The PGN contains no moves.');
+  const headers = chess.getHeaders();
+  const timeControl = parseTimeControl(headers.TimeControl);
+
+  // Comments are keyed by the FEN after the move; clocks look like {[%clk 0:02:59.9]}.
+  const comments = new Map(chess.getComments().map((c) => [c.fen, c.comment]));
+  const clocks = history.map((m) => parseClock(comments.get(m.after)));
+  const lastClock: Record<Color, number | undefined> = { w: timeControl?.base, b: timeControl?.base };
+  const spent = history.map((m, i) => {
+    const prev = lastClock[m.color];
+    const now = clocks[i];
+    if (now === undefined) return undefined;
+    lastClock[m.color] = now;
+    return prev === undefined ? undefined : Math.max(0, prev - now + (timeControl?.increment ?? 0));
+  });
+
   return {
-    headers: chess.getHeaders(),
+    pgn,
+    headers,
+    timeControl,
     startFen: history[0].before,
     moves: history.map((m, i) => ({
       ply: i + 1,
@@ -36,8 +54,22 @@ export function parsePgn(pgn: string): ParsedGame {
       promotion: m.promotion,
       before: m.before,
       after: m.after,
+      clock: clocks[i],
+      timeSpent: spent[i],
     })),
   };
+}
+
+/** "180+2" → { base: 180, increment: 2 }. Daily ("1/86400") and unlimited ("-") games have no clock. */
+function parseTimeControl(tc?: string): TimeControl | undefined {
+  const m = tc?.match(/^(\d+)(?:\+(\d+(?:\.\d+)?))?$/);
+  return m ? { base: Number(m[1]), increment: Number(m[2] ?? 0) } : undefined;
+}
+
+/** "[%clk 0:02:59.9]" → 179.9 seconds. */
+function parseClock(comment?: string): number | undefined {
+  const m = comment?.match(/\[%clk\s+(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)\]/);
+  return m ? Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]) : undefined;
 }
 
 /** Converts a UCI line to SAN, stopping at the first illegal move. */

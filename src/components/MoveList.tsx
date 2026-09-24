@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { MoveAnalysis } from '../analysis/types';
+import { formatSpent } from '../lib/time';
 import { ClassIcon } from './ClassIcon';
 
 interface Props {
@@ -27,11 +28,20 @@ export function MoveList({ moves, current, onSelect }: Props) {
   if (offset) rows.push([undefined, moves[0]]);
   for (let i = offset; i < moves.length; i += 2) rows.push([moves[i], moves[i + 1]]);
 
+  // Time bars are scaled to the longest think in the game.
+  const maxSpent = Math.max(1, ...moves.map((m) => m.timeSpent ?? 0));
+
   const cell = (m: MoveAnalysis | undefined) =>
     m ? (
       <button className={`move ${m.ply === current ? 'active' : ''}`} onClick={() => onSelect(m.ply)}>
         <ClassIcon type={m.classification} size={16} />
         <span>{m.san}</span>
+        {m.timeSpent !== undefined && (
+          <span className="move-time" title={`${formatSpent(m.timeSpent)} spent`}>
+            {formatSpent(m.timeSpent)}
+            <i style={{ width: `${Math.max(4, (m.timeSpent / maxSpent) * 100)}%` }} />
+          </span>
+        )}
       </button>
     ) : (
       <span className="move empty">…</span>
