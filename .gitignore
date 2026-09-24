@@ -3,3 +3,6 @@ dist
 public/stockfish
 *.tsbuildinfo
 .vercel
+
+.vercel
+.env*
