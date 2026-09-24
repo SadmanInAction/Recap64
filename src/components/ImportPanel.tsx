@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 import { useState } from 'react';
 import { fetchChessComGames, fetchLichessGames, type GameSummary } from '../lib/importGames';
 import { localStorageGet, localStorageSet, type SavedSummary } from '../lib/storage';

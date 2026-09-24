@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 export type Color = 'w' | 'b';
 
 /** Evaluation from White's point of view. */

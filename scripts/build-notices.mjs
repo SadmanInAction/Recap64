@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 // Generates public/licenses.txt: the licence of every third-party package shipped to the browser,
 // so the deployed site carries the notices that MIT / BSD / GPL require.
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -18,7 +21,9 @@ for (const [path, info] of Object.entries(lock.packages)) {
 }
 
 const header = `Recap64 — third-party software notices
-Recap64 itself is licensed under the GNU GPL v3 or later: https://github.com/SadmanInAction/Recap64
+Recap64 - Copyright (C) 2026 Sadmanul Arefin
+Licensed under the GNU GPL v3 or later with a section 7(b) attribution term (see NOTICE):
+https://github.com/SadmanInAction/Recap64
 
 Stockfish.js source code: https://github.com/nmrugg/stockfish.js
 Stockfish source code:    https://github.com/official-stockfish/Stockfish

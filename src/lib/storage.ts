@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 // Browser persistence: finished analyses in IndexedDB, small preferences in localStorage.
 // Everything is best-effort — if storage is unavailable (private mode, blocked site data)
 // the app keeps working, it just doesn't remember anything.

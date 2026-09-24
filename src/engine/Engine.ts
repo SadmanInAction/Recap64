@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 // Thin promise-based wrapper around Stockfish running in a Web Worker (UCI protocol).
 
 /** Score from the perspective of the side to move, as reported by UCI. */

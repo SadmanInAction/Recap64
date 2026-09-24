@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 // Builds public/openings.json (position EPD -> "ECO Opening name") from the
 // open-source lichess-org/chess-openings dataset (CC0).
 import { writeFileSync, mkdirSync } from 'node:fs';

@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { Arrow } from 'react-chessboard';
@@ -597,7 +600,7 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          Recap64 is free and{' '}
+          © 2026 Sadmanul Arefin · Recap64 is free and{' '}
           <a href="https://github.com/SadmanInAction/Recap64" target="_blank" rel="noreferrer">
             open source
           </a>{' '}

@@ -73,7 +73,13 @@ Games are analyzed entirely in your browser and never uploaded. Saved analyses s
 
 ## Licence
 
-Recap64 is free software, licensed under the **GNU General Public License v3.0 or later**. See [LICENSE](LICENSE).
+Copyright (C) 2026 Sadmanul Arefin.
+
+Recap64 is free software, licensed under the **GNU General Public License v3.0 or later** ([LICENSE](LICENSE)), with one additional term under GPLv3 section 7(b) ([NOTICE](NOTICE)):
+
+> Any version of Recap64 that is conveyed or served to users over a network (for example, as a website), modified or unmodified, must keep the attribution **"Based on Recap64 by Sadmanul Arefin"** with a link to this repository, visible in its user interface (for example, in a footer or an About section).
+
+You're welcome to fork, modify and host your own version. Just keep the source open under the same licence and keep the credit visible.
 
 It's built on:
 - [Stockfish](https://github.com/official-stockfish/Stockfish) via [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPLv3)

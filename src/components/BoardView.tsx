@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 import { useEffect, useMemo, useState } from 'react';
 import { Chess, type Square } from 'chess.js';
 import { Chessboard, type Arrow } from 'react-chessboard';

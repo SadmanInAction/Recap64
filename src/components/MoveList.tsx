@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 import { useEffect, useRef } from 'react';
 import type { MoveAnalysis } from '../analysis/types';
 import { formatSpent } from '../lib/time';

@@ -1,0 +1,38 @@
+Recap64 - free, unlimited chess game review
+Copyright (C) 2026 Sadmanul Arefin
+https://github.com/SadmanInAction/Recap64
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version, with the additional term below.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+more details.
+
+You should have received a copy of the GNU General Public License along
+with this program (see the LICENSE file). If not, see
+<https://www.gnu.org/licenses/>.
+
+
+ADDITIONAL TERM UNDER SECTION 7(b) OF THE GNU GPL VERSION 3
+
+As permitted by section 7(b) of the GNU General Public License version 3,
+the following additional term applies to this program:
+
+Any version of this program that is conveyed, including by serving it to
+users over a network (for example, as a website), whether modified or
+unmodified, must preserve the author attribution
+
+    Based on Recap64 by Sadmanul Arefin
+
+together with a link to https://github.com/SadmanInAction/Recap64, in the
+Appropriate Legal Notices displayed by its user interface. The attribution
+must be reasonably visible to users, for example in a footer or an "About"
+section. The original Recap64 website satisfies this term with its own
+copyright notice.
+
+This term does not apply to the third-party components distributed with
+this program (such as Stockfish), which remain under their own licences.

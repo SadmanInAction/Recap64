@@ -1,3 +1,6 @@
+// Recap64 - Copyright (C) 2026 Sadmanul Arefin
+// SPDX-License-Identifier: GPL-3.0-or-later (with a GPLv3 section 7(b) attribution term, see NOTICE)
+
 // Copies the lite Stockfish WASM builds into public/ so they can run in a Web Worker.
 //  - stockfish.js     single-threaded, works everywhere
 //  - stockfish-mt.js  multi-threaded, needs cross-origin isolation (COOP/COEP headers, see vite.config.ts)

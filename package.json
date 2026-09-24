@@ -2,6 +2,7 @@
   "name": "recap64",
   "private": true,
   "license": "GPL-3.0-or-later",
+  "author": "Sadmanul Arefin",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
