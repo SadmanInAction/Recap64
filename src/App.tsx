@@ -38,6 +38,8 @@ interface Variation {
   basePly: number;
   moves: { san: string; uci: string; from: string; to: string; fen: string }[];
   index: number; // 0 = base position
+  /** Set when the variation is the engine's best line, opened with the "Best" button. */
+  best?: { returnPly: number; deviated: boolean };
 }
 
 export default function App() {
@@ -209,7 +211,10 @@ export default function App() {
       const m = uciToMove(currentMove.bestUci);
       list.push({ startSquare: m.from, endSquare: m.to, color: 'rgba(129, 182, 76, 0.85)' });
     }
-    if (variation && liveLines[0]?.pv[0]) {
+    if (variation?.best && !variation.best.deviated) {
+      const next = variation.moves[variation.index];
+      if (next) list.push({ startSquare: next.from, endSquare: next.to, color: 'rgba(129, 182, 76, 0.85)' });
+    } else if (variation && liveLines[0]?.pv[0]) {
       const m = uciToMove(liveLines[0].pv[0]);
       list.push({ startSquare: m.from, endSquare: m.to, color: 'rgba(92, 139, 176, 0.85)' });
     }
@@ -218,7 +223,9 @@ export default function App() {
 
   const lastMove = variation
     ? variation.index > 0
-      ? variation.moves[variation.index - 1]
+      ? variation.best && !variation.best.deviated && variation.index === 1
+        ? { ...variation.moves[0], classification: 'best' as const }
+        : variation.moves[variation.index - 1]
       : variation.basePly > 0
         ? analysis!.moves[variation.basePly - 1]
         : undefined
@@ -232,6 +239,28 @@ export default function App() {
     },
     [maxPly],
   );
+
+  /** Leaves a variation: back to the game move you were on. */
+  const exitVariation = useCallback(() => {
+    if (variation) goTo(variation.best?.returnPly ?? variation.basePly);
+  }, [variation, goTo]);
+
+  /** "Best" button: rewind to before the current move and play the engine's line instead. */
+  const showBestMove = () => {
+    if (!analysis || ply === 0) return;
+    const before = analysis.positions[ply - 1];
+    const chess = new Chess(before.fen);
+    const moves: Variation['moves'] = [];
+    for (const uci of (before.lines[0]?.pv ?? []).slice(0, 12)) {
+      try {
+        const mv = chess.move(uciToMove(uci));
+        moves.push({ san: mv.san, uci, from: mv.from, to: mv.to, fen: mv.after });
+      } catch {
+        break;
+      }
+    }
+    if (moves.length) setVariation({ basePly: ply - 1, moves, index: 1, best: { returnPly: ply, deviated: false } });
+  };
 
   const step = useCallback(
     (delta: number) => {
@@ -256,13 +285,13 @@ export default function App() {
       else if (e.key === 'ArrowUp' || e.key === 'Home') goTo(0);
       else if (e.key === 'ArrowDown' || e.key === 'End') goTo(maxPly);
       else if (e.key === 'f') setOrientation((o) => (o === 'white' ? 'black' : 'white'));
-      else if (e.key === 'Escape' && variation) goTo(variation.basePly);
+      else if (e.key === 'Escape' && variation) exitVariation();
       else return;
       e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [screen, step, goTo, maxPly, variation]);
+  }, [screen, step, goTo, maxPly, variation, exitVariation]);
 
   // ----- trying your own moves -----
   const onDrop = (from: string, to: string): boolean => {
@@ -286,7 +315,8 @@ export default function App() {
       setVariation({ basePly: ply, moves: [entry], index: 1 });
     } else {
       const moves = [...variation.moves.slice(0, variation.index), entry];
-      setVariation({ ...variation, moves, index: moves.length });
+      const best = variation.best && { ...variation.best, deviated: true };
+      setVariation({ ...variation, moves, index: moves.length, best });
     }
     setPanel('moves');
     return true;
@@ -416,7 +446,14 @@ export default function App() {
                   </>
                 ) : (
                   <>
-                    <CoachBox analysis={analysis} ply={ply} variation={variation} onExitVariation={() => variation && goTo(variation.basePly)} />
+                    <CoachBox
+                      analysis={analysis}
+                      ply={ply}
+                      variation={variation}
+                      onExitVariation={exitVariation}
+                      onShowBest={showBestMove}
+                      onStep={step}
+                    />
                     <EvalGraph positions={analysis.positions} moves={analysis.moves} current={variation ? variation.basePly : ply} onSelect={goTo} />
                     <EngineLines lines={liveLines} on={liveOn} onToggle={toggleLive} fen={fen} />
                     <MoveList moves={analysis.moves} current={variation ? -1 : ply} onSelect={goTo} />
@@ -521,12 +558,60 @@ function CoachBox({
   ply,
   variation,
   onExitVariation,
+  onShowBest,
+  onStep,
 }: {
   analysis: GameAnalysis;
   ply: number;
   variation: Variation | null;
   onExitVariation: () => void;
+  onShowBest: () => void;
+  onStep: (delta: number) => void;
 }) {
+  if (variation?.best && !variation.best.deviated) {
+    const played = analysis.moves[variation.best.returnPly - 1];
+    const best = variation.moves[0];
+    const atEnd = variation.index >= variation.moves.length;
+    const moveLabel = `${Math.ceil(played.ply / 2)}${played.color === 'w' ? '.' : '...'} ${best.san}`;
+    return (
+      <div className="coach" style={{ borderColor: CLASS_INFO.best.color }}>
+        <div className="coach-head">
+          <ClassIcon type="best" size={28} />
+          <span className="coach-title" style={{ color: CLASS_INFO.best.color }}>
+            {moveLabel} · Best
+          </span>
+          <button className="btn-secondary small" onClick={onExitVariation}>
+            Back to game
+          </button>
+        </div>
+        <p className="coach-text">
+          {variation.index === 0
+            ? `The position before ${played.san}. Press → to see the best move.`
+            : variation.index === 1
+              ? `${best.san} is the best move here, instead of ${played.san}.`
+              : `Best line, move ${variation.index} of ${variation.moves.length}.`}
+        </p>
+        <p className="variation-line">
+          {numberedSan(
+            analysis.positions[variation.basePly].fen,
+            variation.moves.map((m) => m.san),
+          ).map((label, i) => (
+            <span key={i} className={i === variation.index - 1 ? 'hl' : ''}>
+              {label}{' '}
+            </span>
+          ))}
+        </p>
+        <div className="coach-actions">
+          <button className="btn-secondary small" onClick={() => onStep(-1)}>
+            ◀ Back
+          </button>
+          <button className="btn-secondary small" onClick={() => onStep(1)} disabled={atEnd}>
+            {variation.index <= 1 ? 'Show follow-up ▶' : 'Next ▶'}
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (variation) {
     return (
       <div className="coach">
@@ -583,6 +668,16 @@ function CoachBox({
           <span className="muted">Best line: </span>
           {numberedSan(m.before, m.bestLine.slice(0, 8)).join(' ')}
         </p>
+      )}
+      {showBest && (
+        <div className="coach-actions">
+          <button className="btn-best" onClick={onShowBest} title="Play the best move on the board">
+            <ClassIcon type="best" size={18} /> Best
+          </button>
+          <button className="btn-secondary small" onClick={() => onStep(1)} disabled={ply >= analysis.moves.length}>
+            Next ▶
+          </button>
+        </div>
       )}
     </div>
   );

@@ -122,8 +122,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .avatar.black { background: #1a1917; color: #e8e6e3; border: 1px solid #555; }
 .player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-elo { color: var(--muted); font-weight: 400; flex: none; }
-.player-right { flex: none; }
-.player-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.player-right { flex: none; margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .player-acc { background: var(--panel); padding: 2px 8px; border-radius: 4px; font-size: 13px; }
 .clock {
   font-variant-numeric: tabular-nums; font-size: 18px; font-weight: 700; min-width: 92px; text-align: right;
@@ -209,6 +208,12 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .coach-head .btn-secondary { margin-left: auto; }
 .coach-text { margin: 8px 0 0; line-height: 1.45; }
 .coach-time { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.coach-actions { display: flex; gap: 8px; margin-top: 10px; }
+.btn-best {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 6px; padding: 5px 12px;
+  font-size: 13px; font-weight: 700; background: var(--green); color: #fff; box-shadow: 0 2px 0 var(--green-dark);
+}
+.btn-best:hover { background: #95c95d; }
 .best-line { margin: 6px 0 0; font-family: Consolas, monospace; font-size: 13px; }
 .variation-line { margin: 8px 0 0; font-family: Consolas, monospace; }
 .variation-line .hl { color: var(--green); font-weight: 700; }
